@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	"github.com/PuerkitoBio/goquery"
-
+	"github.com/djimenez/iconv-go"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -103,7 +103,12 @@ func parseModules(client *http.Client) (grades []module, err error) {
 	if err != nil {
 		return
 	}
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	//convert charset to utf-8
+	utfBody, err := iconv.NewReader(res.Body, "windows-1252", "utf-8")
+	if err != nil {
+		return
+	}
+	doc, err := goquery.NewDocumentFromReader(utfBody)
 	if err != nil {
 		return
 	}
