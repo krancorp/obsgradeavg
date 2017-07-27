@@ -23,7 +23,7 @@ const obsURL = "https://obs.fbi.h-da.de/obs/"
 type module struct {
 	name string
 	avg  float32
-	cp   int
+	cp   float32
 }
 
 func main() {
@@ -70,13 +70,13 @@ func main() {
 	modules, err := parseModules(client)
 	exitOnError(err)
 
-	cpSum := 0
+	cpSum := float32(0)
 	gradeSum := float32(0)
 	for _, m := range modules {
 		cpSum += m.cp
 		gradeSum += float32(m.cp) * m.avg
 	}
-	fmt.Printf("The total average is %.2f at currently %d cp.\n", gradeSum/float32(cpSum), cpSum)
+	fmt.Printf("The total average is %.2f at currently %.1f cp.\n", gradeSum/float32(cpSum), cpSum)
 }
 
 func login(client *http.Client, username string, password string) bool {
@@ -116,12 +116,13 @@ func parseModules(client *http.Client) (grades []module, err error) {
 			row.Children().Get(7).FirstChild == nil {
 			return
 		}
-		cp, _ := strconv.Atoi(row.Children().Eq(8).Text())
+		cp64, _ := strconv.ParseFloat(strings.Replace(row.Children().Eq(8).Text(), ",", ".", 1), 32)
+		cp := float32(cp64)
 		if cp == 0 {
 			return
 		}
 		moduleName := row.Children().Eq(3).Text()
-		fmt.Printf("Module '%v'...", moduleName)
+		fmt.Printf("Module '%v' (%.1f cp)...", moduleName, cp)
 		statID, _ := row.Children().Eq(7).Children().Attr("href")
 		statID = strings.TrimSuffix(strings.TrimPrefix(statID, "javascript:Statistik('"), "')")
 		avg := calculateAvgGrade(client, statID)
@@ -158,7 +159,7 @@ func calculateAvgGrade(client *http.Client, statID string) float32 {
 			newCnt, _ := strconv.Atoi(descParts[0])
 			g, _ := strconv.ParseFloat(descParts[1], 32)
 			if g == 5 {
-				//return
+				return
 			}
 			gradesSum += float32(g) * float32(newCnt-gradesCnt)
 			gradesCnt = newCnt
