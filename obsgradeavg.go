@@ -116,17 +116,26 @@ func parseModules(client *http.Client) (grades []module, err error) {
 	rows.Each(func(i int, row *goquery.Selection) {
 		if i == 0 ||
 			i == rows.Length()-1 ||
-			row.Children().Size() != 10 ||
-			!row.Children().First().Is("td") ||
-			row.Children().Get(7).FirstChild == nil {
+			row.Children().Size() != 9 ||
+			row.Children().Eq(7).Children().Size() == 0 {
 			return
 		}
-		cp64, _ := strconv.ParseFloat(strings.Replace(row.Children().Eq(8).Text(), ",", ".", 1), 32)
-		cp := float32(cp64)
+
+		grade, _ := strconv.ParseFloat(row.Children().Eq(6).Text(), 32)
+		if grade == 5.0 {
+			return
+		}
+
+		mu, _ := row.Children().Eq(4).Children().Eq(0).Attr("href")
+		cp := getCPForModule(client, mu)
 		if cp == 0 {
 			return
 		}
+
 		moduleName := row.Children().Eq(3).Text()
+		if strings.Contains(moduleName, "(PVL)") {
+			return
+		}
 		fmt.Printf("Module '%v' (%.1f cp)...", moduleName, cp)
 		statID, _ := row.Children().Eq(7).Children().Attr("href")
 		statID = strings.TrimSuffix(strings.TrimPrefix(statID, "javascript:Statistik('"), "')")
@@ -144,6 +153,17 @@ func parseModules(client *http.Client) (grades []module, err error) {
 		grades = append(grades, m)
 	})
 	return
+}
+
+func getCPForModule(client *http.Client, moduleLink string) float32 {
+	res, err := client.Get(moduleLink)
+	exitOnError(err)
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	exitOnError(err)
+	cpt := doc.Find("#content table tbody").Children().Eq(6).Children().Eq(1).Text()
+	cp, err := strconv.ParseFloat(strings.Replace(cpt, ",", ".", 1), 32)
+	exitOnError(err)
+	return float32(cp)
 }
 
 func calculateAvgGrade(client *http.Client, statID string) float32 {
